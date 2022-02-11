@@ -1,0 +1,143 @@
+name: weston
+base: core20
+adopt-info: weston
+summary: weston
+description: |
+  weston
+
+grade: devel # must be 'stable' to release into candidate/stable channels
+confinement: classic
+
+parts:
+  build-deps:
+    plugin: nil
+    build-packages:
+    - ninja-build
+    - pkg-config
+
+  wayland:
+    source: https://gitlab.freedesktop.org/wayland/wayland.git
+    source-tag: "1.20.0"
+    source-depth: 1
+    plugin: meson
+    build-packages:
+    - libffi-dev
+    - libexpat1-dev
+    meson-parameters:
+    - -Dtests=false
+    - -Ddocumentation=false
+    - -Ddtd_validation=false
+
+  wayland-protocols:
+    source: https://gitlab.freedesktop.org/wayland/wayland-protocols.git
+    source-tag: "1.25"
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+    - -Dtests=false
+
+  seat:
+    source-type: git
+    source: https://git.sr.ht/~kennylevinsen/seatd
+    source-tag: "0.6.3"
+    source-depth: 1
+    plugin: meson
+
+  weston:
+    after: [wayland, wayland-protocols, seat]
+    source: https://gitlab.freedesktop.org/wayland/weston.git
+    source-tag: "10.0.0"
+    source-depth: 1
+    override-pull: |
+      snapcraftctl pull
+      snapcraftctl set-version `git tag -l --sort=-creatordate | head -n 1`
+    plugin: meson
+    meson-parameters:
+    - -Dbackend-rdp=false
+    - -Dbackend-drm-screencast-vaapi=false
+    - -Dbackend-x11=false
+    - -Dxwayland=false
+    - -Dsystemd=false
+    - -Dpipewire=false
+    - -Dcolor-management-colord=false
+    - -Dcolor-management-lcms=false
+    - -Dlauncher-logind=true
+    - -Dlauncher-libseat=true
+    - -Dshell-fullscreen=false
+    - -Dshell-ivi=false
+    - -Dshell-kiosk=false
+    - -Dimage-jpeg=false
+    - -Dimage-webp=false
+    - -Dremoting=false
+    - -Dtest-junit-xml=false
+    build-packages:
+    - libdrm-dev
+    - libgbm-dev
+    - libxkbcommon-dev
+    # - libudev-dev
+    - libpixman-1-dev
+    - libinput-dev
+    - libcairo2-dev
+    - libegl-dev
+    - libgles-dev
+    - libsystemd-dev
+    - libdbus-1-dev
+    - libpango1.0-dev
+    stage-packages:
+    - libcairo2
+    - libdatrie1
+    - libdrm2
+    - libegl1
+    - libevdev2
+    - libfontconfig1
+    - libfreetype6
+    - libfribidi0
+    - libgbm1
+    - libgles2
+    - libglvnd0
+    - libgraphite2-3
+    - libgudev-1.0-0
+    - libharfbuzz0b
+    - libinput10
+    - libmtdev1
+    - libpango-1.0-0
+    - libpangocairo-1.0-0
+    - libpangoft2-1.0-0
+    - libpixman-1-0
+    - libpng16-16
+    - libthai0
+    - libwacom2
+    - libx11-6
+    - libxau6
+    - libxcb-render0
+    - libxcb-shm0
+    - libxcb1
+    - libxdmcp6
+    - libxext6
+    - libxkbcommon0
+    - libxrender1
+
+  launcher:
+    after: [weston]
+    plugin: nil
+    override-prime: |
+      echo -e "#!/usr/bin/bash\nexport SEATD_LOGLEVEL=debug\nseatd-launch -- weston" > weston-seatd
+      chmod +x weston-seatd
+      echo -e "#!/usr/bin/bash\ndbus-launch weston" > weston-logind
+      chmod +x weston-logind
+
+apps:
+  weston:
+    command: weston
+    environment:
+      # LD_LIBRARY_PATH: ${SNAP}/usr/local/selib/x86_64-linux-gnu
+      PATH: ${SNAP}/usr/local/bin
+    # command: weston-seatd
+    # environment:
+    #   LD_LIBRARY_PATH: ${SNAP}/usr/local/lib/x86_64-linux-gnu
+    #   PATH: ${SNAP}/usr/local/bin
+
+    # plugs:
+    # - login-session-control
+    # - x11
+    # - wayland
